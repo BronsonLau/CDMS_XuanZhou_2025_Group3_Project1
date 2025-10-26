@@ -6,7 +6,7 @@ from flask import request
 from be.view import auth
 from be.view import seller
 from be.view import buyer
-from be.model.store import init_database, init_completed_event
+from bookstore.be.model.store_mongo import init_database, init_completed_event
 
 bp_shutdown = Blueprint("shutdown", __name__)
 

@@ -2,7 +2,7 @@ import requests
 import threading
 from urllib.parse import urljoin
 from be import serve
-from be.model.store import init_completed_event
+from bookstore.be.model.store_mongo import init_completed_event
 from fe import conf
 
 thread: threading.Thread = None
