@@ -186,4 +186,55 @@ class Seller(db_conn.DBConn):
             return 530, f"{e}"
         return 200, "ok"
 
-    
+    def send_books(self, user_id: str, order_id: str) -> Tuple[int, str]:
+        """Ship books for a paid order (Mongo-only)."""
+        try:
+            # Validate order exists and was paid
+            paid_doc = next(
+                iter(
+                    self.col_order_status
+                    .find({"order_id": order_id, "status": "paid"})
+                    .sort([( "ts", -1)])
+                    .limit(1)
+                ),
+                None,
+            )
+            if not paid_doc:
+                return error.error_invalid_order_id(order_id)
+            store_id = paid_doc.get("store_id")
+            if not store_id:
+                return error.error_invalid_order_id(order_id)
+
+            # Authorization: only store owner can ship
+            store = self.col_stores.find_one({"_id": store_id}, {"owner_id": 1})
+            if not store:
+                return error.error_non_exist_store_id(store_id)
+            if store.get("owner_id") != user_id:
+                return error.error_authorization_fail()
+
+            # Check latest status
+            last = next(
+                iter(self.col_order_status.find({"order_id": order_id}).sort([( "ts", -1)]).limit(1)),
+                None,
+            )
+            if last and last.get("status") in ("received", "canceled", "timed_out"):
+                return 200, "ok"
+            if last and last.get("status") not in ("paid", "shipped"):
+                return error.error_authorization_fail()
+
+            # Append shipped in Mongo
+            shipped_ts = int(time.time() * 1000)
+            self.col_order_status.insert_one(
+                {
+                    "order_id": order_id,
+                    "status": "shipped",
+                    "ts": shipped_ts,
+                    "user_id": user_id,
+                    "store_id": store_id,
+                }
+            )
+        except PyMongoError as e:
+            return 528, f"{e}"
+        except BaseException as e:
+            return 530, f"{e}"
+        return 200, "ok"
