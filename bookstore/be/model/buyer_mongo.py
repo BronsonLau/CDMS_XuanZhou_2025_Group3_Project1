@@ -92,8 +92,10 @@ class Buyer(db_conn.DBConn):
         doc = self.col_orders.find_one({"_id": order_id}, {"created_ts": 1, "user_id": 1, "store_id": 1})
         if not doc:
             return False
-        created_ts = int(doc.get("created_ts", int(time.time())))
-        if int(time.time()) - created_ts > self.ORDER_TIMEOUT_SECONDS:
+        # created_ts 在 new_order 中以毫秒写入，这里统一使用毫秒计算超时
+        created_ts_ms = int(doc.get("created_ts", int(time.time() * 1000)))
+        now_ms = int(time.time() * 1000)
+        if now_ms - created_ts_ms > self.ORDER_TIMEOUT_SECONDS * 1000:
             # Append timed_out if not already a terminal state
             latest = self.col_order_status.find({"order_id": order_id}).sort([("ts", -1)]).limit(1)
             last = next(iter(latest), None)
@@ -294,8 +296,9 @@ class Buyer(db_conn.DBConn):
                 return error.error_authorization_fail()
 
             # Append canceled
+            # 统一使用毫秒时间戳
             self.col_order_status.insert_one(
-                {"order_id": order_id, "status": "canceled", "ts": int(time.time()), "user_id": user_id}
+                {"order_id": order_id, "status": "canceled", "ts": int(time.time() * 1000), "user_id": user_id}
             )
         except PyMongoError as e:
             return 528, f"{e}"

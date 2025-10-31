@@ -2,7 +2,7 @@ import requests
 import threading
 from urllib.parse import urljoin
 from be import serve
-from bookstore.be.model.store_mongo import init_completed_event
+from be.serve import init_completed_event
 from fe import conf
 
 thread: threading.Thread = None
@@ -20,6 +20,26 @@ def pytest_configure(config):
     thread = threading.Thread(target=run_backend)
     thread.start()
     init_completed_event.wait()
+    # Global Mongo cleanup for tests (idempotent, best-effort)
+    try:
+        from be.model import mongo_store as _ms
+
+        db = _ms.get_db()
+        for _col in [
+            "user",
+            "stores",
+            "inventory",
+            "orders",
+            "order_details",
+            "order_status",
+        ]:
+            try:
+                db[_col].delete_many({})
+            except Exception:
+                pass
+    except Exception:
+        # Mongo might be unavailable in some environments; ignore cleanup errors
+        pass
 
 
 def pytest_unconfigure(config):

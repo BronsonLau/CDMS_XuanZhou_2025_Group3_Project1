@@ -102,9 +102,24 @@ def list_orders():
     b = Buyer()
     try:
         code, message, results = b.list_orders(user_id=user_id, page=page, size=size, status=status)
+        # 计算未分页前的总量：对同一 user_id（以及可选 status）按 order_id 去重计数
+        try:
+            match = {"user_id": user_id}
+            if status:
+                match["status"] = status
+            total_cursor = b.col_order_status.aggregate([
+                {"$match": match},
+                {"$group": {"_id": "$order_id"}},
+                {"$count": "total"},
+            ])
+            total_doc = next(iter(total_cursor), None)
+            total = int(total_doc.get("total", 0)) if total_doc else 0
+        except Exception:
+            # 兜底：若统计出现异常，退回为当前页数量，避免接口失败
+            total = len(results)
     finally:
         try:
             b.conn.close()
         except Exception:
             pass
-    return jsonify({"message": message, "count": len(results), "results": results}), code
+    return jsonify({"message": message, "count": total, "results": results}), code

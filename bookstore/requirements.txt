@@ -7,3 +7,6 @@ pre - commit
 pytest
 PyJWT
 requests
+pymongo>=4.6.0
+# For tests, we may later use mongomock to simulate MongoDB in-memory
+# mongomock>=4.1.2

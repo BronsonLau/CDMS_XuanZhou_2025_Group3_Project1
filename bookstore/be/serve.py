@@ -7,7 +7,7 @@ from flask import request
 from be.view import auth
 from be.view import seller
 from be.view import buyer
-from be.view import admin   
+from be.view import admin
 from be.view import search
 init_completed_event = threading.Event()
 from be.model import mongo_store
