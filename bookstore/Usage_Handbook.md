@@ -1,7 +1,7 @@
 # 将 SQLite 迁移为 MongoDB 的全流程说明（以bookstore项目为例）
 
 本文档记录了 bookstore 项目从 SQLite 全量切换到 MongoDB 的搭建顺序、迁移思路与关键实现片段（含对应源码摘录）。
-可以按章节逐步执行/对照，确保测试用例保持通过，且 be/model/store.py 等关键入口保持可用且兼容。
+可以按章节逐步对照，确保测试用例保持通过，且 be/model/store.py 等关键入口保持可用且兼容。
 
 更新时间：2025-11-01
 
@@ -22,7 +22,7 @@
 # 安装依赖
 pip install -r .\bookstore\requirements.txt
 
-# 运行后端（Flask）
+# 运行后端（Flask SQLITE ）
 python .\bookstore\be\serve.py
 
 # 运行测试
@@ -31,7 +31,7 @@ pytest -q .\bookstore\fe\test
 
 ---
 
-## 2. 迁移总思路（自顶向下）
+## 2. 迁移总思路
 
 1) 提供 Mongo 连接与索引工具（`be/model/mongo_store.py`），统一获取 `db` 并在关键集合建索引。
 2) 保留 `be/model/store.py` 文件作为兼容入口（不可删除），改造成 Mongo 兼容层（Shim），返回空操作连接以兼容历史 `.conn.close()`。
@@ -334,9 +334,8 @@ self.col_books.update_one({"id": book_id}, {"$set": doc}, upsert=True)
 
 要点：
 - 移除 SQLite 初始化；
-- 启动前调用 `mongo_store.ensure_indexes(db)` 和 `store_mongo.ensure_indexes(db)`（后者如有）；
+- 启动前调用 `mongo_store.ensure_indexes(db)` 和 `store_mongo.ensure_indexes(db)`；
 - 注册蓝图 `auth/seller/buyer/admin/search`；
-- 提供 `/shutdown` 便于测试。
 
 代码摘录：
 
@@ -761,7 +760,7 @@ python .\bookstore\script\import_sqlite_bookdb_to_mongo.py --sqlite "C:\\path\\t
 - 集合：`order_status`（`order_id`, `status`, `ts` 毫秒, `user_id`, `store_id`）
 - 说明：状态机 `created -> paid -> shipped -> received`，并含 `canceled/timed_out` 分支；历史订单通过聚合获取每单最新状态。
 
-6) 管理配置（如有）
+6) 管理配置
 
 - 一些管理类测试（例如 `fe/test/test_admin_config.py`）不依赖书库/业务数据结构，主要验证参数校验与返回码行为。
 
